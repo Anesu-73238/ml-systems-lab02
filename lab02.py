@@ -148,3 +148,27 @@ print("\n=== FINAL RESULTS ===")
 print(f"{'W':>4}{'lr':>8}{'train loss':>13}{'test loss':>12}{'test acc':>11}")
 for W, lr, a, b, acc in summary:
     print(f"{W:>4}{lr:>8}{a:>13.4f}{b:>12.4f}{acc:>11.4f}")
+
+# ---------- Task 7: timing ----------
+import time
+
+def median_time(fn, runs=100):
+    for _ in range(5):          # warm-up
+        fn()
+    ts = []
+    for _ in range(runs):
+        t0 = time.perf_counter()
+        fn()
+        ts.append(time.perf_counter() - t0)
+    return np.median(ts)
+
+print("\n=== TIMING (median of 100 runs, microseconds) ===")
+print(f"{'W':>4}{'batch':>8}{'forward':>12}{'backward':>12}{'bwd/fwd':>10}")
+for W in [16, 64]:
+    p = init_params(W)
+    for B in [32, 1257]:
+        Xb, Yb = Xtr[:B], Ytr[:B]
+        probs, cache = forward(Xb, p)
+        tf = median_time(lambda: forward(Xb, p))
+        tb = median_time(lambda: backward(probs, cache, Yb, p))
+        print(f"{W:>4}{B:>8}{tf*1e6:>12.1f}{tb*1e6:>12.1f}{tb/tf:>10.2f}")
