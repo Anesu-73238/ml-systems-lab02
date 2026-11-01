@@ -93,3 +93,58 @@ grad_check(init_params(16), Xtr[:20], Ytr[:20])
 print("\n--- gradient check, larger weights (x10) ---")
 p_big = {k: v * 10 for k, v in init_params(16).items()}
 grad_check(p_big, Xtr[:20], Ytr[:20])
+
+
+import os
+import matplotlib
+matplotlib.use("Agg")          # save figures without opening a window
+import matplotlib.pyplot as plt
+
+def accuracy(X, y, p):
+    probs, _ = forward(X, p)
+    return np.mean(probs.argmax(axis=1) == y)
+
+def train(W, lr, epochs=50, batch=32, seed=0):
+    p = init_params(W, seed)
+    rng = np.random.default_rng(seed)
+    n = Xtr.shape[0]
+    train_losses, test_losses = [], []
+    for ep in range(epochs):
+        order = rng.permutation(n)                  # shuffle every epoch
+        for i in range(0, n, batch):
+            idx = order[i:i + batch]
+            probs, cache = forward(Xtr[idx], p)
+            g = backward(probs, cache, Ytr[idx], p)
+            for k in p:
+                p[k] -= lr * g[k]                   # SGD update
+        trl = loss_fn(forward(Xtr, p)[0], Ytr)
+        tel = loss_fn(forward(Xte, p)[0], Yte)
+        train_losses.append(trl)
+        test_losses.append(tel)
+        print(f"W={W} lr={lr} epoch {ep+1:2d}/{epochs}  train_loss={trl:.4f}  test_loss={tel:.4f}")
+    return p, train_losses, test_losses
+
+os.makedirs("results", exist_ok=True)
+lrs = [0.001, 0.01, 0.1]
+widths = [16, 64]
+fig, axes = plt.subplots(len(widths), len(lrs), figsize=(14, 7), sharey=True)
+summary = []
+for r, W in enumerate(widths):
+    for c, lr in enumerate(lrs):
+        p, trl, tel = train(W, lr)
+        acc = accuracy(Xte, yte, p)
+        summary.append((W, lr, trl[-1], tel[-1], acc))
+        ax = axes[r, c]
+        ax.plot(trl, label="train")
+        ax.plot(tel, label="test")
+        ax.set_title(f"W={W}, lr={lr}")
+        ax.set_xlabel("epoch")
+        ax.set_ylabel("loss")
+        ax.legend()
+plt.tight_layout()
+plt.savefig("results/loss_curves.png", dpi=150)
+
+print("\n=== FINAL RESULTS ===")
+print(f"{'W':>4}{'lr':>8}{'train loss':>13}{'test loss':>12}{'test acc':>11}")
+for W, lr, a, b, acc in summary:
+    print(f"{W:>4}{lr:>8}{a:>13.4f}{b:>12.4f}{acc:>11.4f}")
